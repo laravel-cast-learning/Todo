@@ -14,6 +14,8 @@ class TodoController extends Controller
         $perPage = request()->query('per_page',10);
         $todos = Todo::query()->paginate(perPage: $perPage,page: $page);
         return response()->json([
+            'status'=>true,
+            'message'=>'success',
             'data' => $todos->items(),
             'meta' => [
                 'current_page' => $todos->currentPage(),

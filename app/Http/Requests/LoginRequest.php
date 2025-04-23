@@ -2,10 +2,13 @@
 
 namespace App\Http\Requests;
 
+use App\Models\User;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 
-class TodoRequest extends ProtectedBaseRequest
+class LoginRequest extends BaseRequest
 {
 
     /**
@@ -16,25 +19,17 @@ class TodoRequest extends ProtectedBaseRequest
     public function rules(): array
     {
         return array_merge(parent::rules(), [
-            'title' => 'required',
-            'description' => 'required',
+            'email' => 'required|email',
+            'password' => 'required|min:6',
         ]);
-    }
-
-    public function messages(): array
-    {
-        return [
-          'title.required' => 'Title is required',
-          'description.required' => 'Description is required',
-        ];
     }
 
     protected function failedValidation(Validator $validator)
     {
         throw new HttpResponseException(response()->json([
-            'success'   => false,
-            'message'   => $validator->errors()->first(),
-            'errors'    => $validator->errors()
+            'success' => false,
+            'message' => $validator->errors()->first(),
+            'errors' => $validator->errors()
         ]));
     }
 }
