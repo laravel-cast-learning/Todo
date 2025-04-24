@@ -12,7 +12,7 @@ class TodoController extends Controller
     {
         $page = request()->query('page',1);
         $perPage = request()->query('per_page',10);
-        $todos = Todo::query()->paginate(perPage: $perPage,page: $page);
+        $todos = Todo::with('user')->where('user_id',auth()->id())->paginate(perPage: $perPage,page: $page);
         return response()->json([
             'status'=>true,
             'message'=>'success',
@@ -30,6 +30,7 @@ class TodoController extends Controller
     public function store(TodoRequest $request): JsonResponse
     {
         $validated = $request->validated();
+        $validated['user_id'] = auth()->id();
         return response()->json([
             'success' => true,
             'message' => 'Successfully Created!',
@@ -45,8 +46,9 @@ class TodoController extends Controller
 
     public function markAsCompleted(int $id): JsonResponse
     {
+
         $todo = Todo::find($id);
-        if ($todo) {
+        if ($todo && $todo->user_id == auth()->id()) {
             $todo->completed = true;
             $todo->save();
             return response()->json([
@@ -68,7 +70,7 @@ class TodoController extends Controller
     public function delete(int $id): JsonResponse
     {
         $todo = Todo::find($id);
-        if ($todo) {
+        if ($todo && $todo->user_id == auth()->id()) {
             $todo->delete();
             return response()->json([
                 'success' => true,

@@ -37,4 +37,13 @@ class TodoRequest extends ProtectedBaseRequest
             'errors'    => $validator->errors()
         ]));
     }
+
+    protected function failedAuthorization()
+    {
+        throw new HttpResponseException(response()->json([
+            'success'   => false,
+            'message'   => 'You are not authorized to perform this action',
+            'errors'    => null
+        ],401));
+    }
 }

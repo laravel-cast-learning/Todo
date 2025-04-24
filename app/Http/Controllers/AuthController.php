@@ -13,12 +13,16 @@ class AuthController extends Controller
     /**
      * @throws ValidationException
      */
-    public function login(LoginRequest $request){
+    public function login(LoginRequest $request)
+    {
         $validated = $request->validated();
         $user = User::where('email', $validated['email'])->first();
-        if (! $user || ! Hash::check($validated['password'], $user->password)) {
-            throw ValidationException::withMessages([
-                'email' => ['The provided credentials are incorrect.'],
+        if (!$user || !Hash::check($validated['password'], $user->password)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'The provided credentials are incorrect.',
+                'errors' => null,
+                'data' => null,
             ]);
         }
         $token = $user->createToken('auth-token')->plainTextToken;
@@ -32,7 +36,8 @@ class AuthController extends Controller
         ]);
     }
 
-    public function register(RegisterRequest $request){
+    public function register(RegisterRequest $request)
+    {
         $validated = $request->validated();
         $user = User::create($validated);
         $token = $user->createToken('auth_token')->plainTextToken;
