@@ -3,7 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\TodoRequest;
+use App\Http\Resources\TodoResource;
+use App\Models\Status;
 use App\Models\Todo;
+use Illuminate\Http\Client\Request;
 use Illuminate\Http\JsonResponse;
 
 class TodoController extends Controller
@@ -12,11 +15,13 @@ class TodoController extends Controller
     {
         $page = request()->query('page',1);
         $perPage = request()->query('per_page',10);
-        $todos = Todo::with('user')->where('user_id',auth()->id())->paginate(perPage: $perPage,page: $page);
+        $todos = Todo::with(['user','status'])
+            ->where('user_id',auth()->id())
+            ->paginate(perPage: $perPage,page: $page);
         return response()->json([
             'status'=>true,
             'message'=>'success',
-            'data' => $todos->items(),
+            'data' => TodoResource::collection($todos),
             'meta' => [
                 'current_page' => $todos->currentPage(),
                 'prev' => $todos->previousPageUrl(),
@@ -39,23 +44,47 @@ class TodoController extends Controller
         ]);
     }
 
-    public function update()
+    public function update(Request $request,int $id): JsonResponse
     {
+        $validated = $request->validate([
+            'title' => 'sometimes|required|string|max:255',
+            'description' => 'sometimes|nullable|string'
+        ]);
 
+        $todo = $this->getTodo($id);
+
+        if (!$todo) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Todo not found or not authorized',
+                'error' => 'Not found or unauthorized',
+                'data' => null
+            ], 404);
+        }
+
+        $todo->update($validated);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Todo updated successfully',
+            'data' => [
+                'todo' => $todo->fresh()
+            ]
+        ]);
     }
 
     public function markAsCompleted(int $id): JsonResponse
     {
 
-        $todo = Todo::find($id);
-        if ($todo && $todo->user_id == auth()->id()) {
-            $todo->completed = true;
+        $todo = $this->getTodo($id);
+        if ($todo) {
+            $todo->status_id = Status::where('name', 'completed')->firstOrFail()->id;
             $todo->save();
             return response()->json([
                 'success' => true,
                 'message' => 'Mark as completed!',
                 'error' => null,
-                'data' => null
+                'data' => $todo->fresh()
             ]);
         } else {
             return response()->json([
@@ -69,8 +98,8 @@ class TodoController extends Controller
 
     public function delete(int $id): JsonResponse
     {
-        $todo = Todo::find($id);
-        if ($todo && $todo->user_id == auth()->id()) {
+        $todo = $this->getTodo($id);
+        if ($todo) {
             $todo->delete();
             return response()->json([
                 'success' => true,
@@ -86,6 +115,12 @@ class TodoController extends Controller
                 'data' => null
             ]);
         }
+    }
+
+    public function getTodo(int $id){
+        return Todo::where('id',$id)
+            ->where('user_id',auth()->id())
+            ->firstOrFail();
     }
 
 }
