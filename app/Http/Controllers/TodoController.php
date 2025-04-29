@@ -6,11 +6,13 @@ use App\Http\Requests\TodoRequest;
 use App\Http\Resources\TodoResource;
 use App\Models\Status;
 use App\Models\Todo;
+use App\Traits\ApiResponses;
 use Illuminate\Http\Client\Request;
 use Illuminate\Http\JsonResponse;
 
 class TodoController extends Controller
 {
+    use ApiResponses;
     public function index(): JsonResponse
     {
         $page = request()->query('page',1);
@@ -18,30 +20,22 @@ class TodoController extends Controller
         $todos = Todo::with(['user','status'])
             ->where('user_id',auth()->id())
             ->paginate(perPage: $perPage,page: $page);
-        return response()->json([
-            'status'=>true,
-            'message'=>'success',
-            'data' => TodoResource::collection($todos),
-            'meta' => [
-                'current_page' => $todos->currentPage(),
-                'prev' => $todos->previousPageUrl(),
-                'next' => $todos->nextPageUrl(),
-                'per_page' => $todos->perPage(),
-                'total' => $todos->total(),
-            ],
-        ]);
+        return $this->paginatedResponse(
+            message: "Data Found!",
+            data: TodoResource::collection($todos),
+            meta: $todos
+        );
     }
 
     public function store(TodoRequest $request): JsonResponse
     {
         $validated = $request->validated();
         $validated['user_id'] = auth()->id();
-        return response()->json([
-            'success' => true,
-            'message' => 'Successfully Created!',
-            'errors' => null,
-            'data' => Todo::create($validated)
-        ]);
+        return $this->successResponse(
+            message: "Todo Created!",
+            code: 201,
+            data: Todo::create($validated)
+        );
     }
 
     public function update(Request $request,int $id): JsonResponse
@@ -52,69 +46,34 @@ class TodoController extends Controller
         ]);
 
         $todo = $this->getTodo($id);
-
-        if (!$todo) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Todo not found or not authorized',
-                'error' => 'Not found or unauthorized',
-                'data' => null
-            ], 404);
-        }
-
-        $todo->update($validated);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Todo updated successfully',
-            'data' => [
-                'todo' => $todo->fresh()
-            ]
-        ]);
+        return $todo ? $this->successResponse(
+            message: "Data Found!",
+            data: $todo->update($validated)->fresh()
+        ):$this->notFoundResponse();
     }
 
     public function markAsCompleted(int $id): JsonResponse
     {
-
         $todo = $this->getTodo($id);
         if ($todo) {
             $todo->status_id = Status::where('name', 'completed')->firstOrFail()->id;
             $todo->save();
-            return response()->json([
-                'success' => true,
-                'message' => 'Mark as completed!',
-                'error' => null,
-                'data' => $todo->fresh()
-            ]);
+            return $this->successResponse(
+                message: 'Marked as completed!',
+                data: $todo->fresh()
+            );
         } else {
-            return response()->json([
-                'success' => false,
-                'message' => 'Record not found!',
-                'error' => 'Record not found!',
-                'data' => null
-            ]);
+            return $this->notFoundResponse();
         }
     }
 
     public function delete(int $id): JsonResponse
     {
-        $todo = $this->getTodo($id);
-        if ($todo) {
-            $todo->delete();
-            return response()->json([
-                'success' => true,
-                'message' => 'Successfully Deleted!',
-                'errors' => null,
-                'data' => null
-            ]);
-        } else {
-            return response()->json([
-                'success' => false,
-                'message' => 'Record not found!',
-                'error' => 'Record not found!',
-                'data' => null
-            ]);
+        if (!$todo = $this->getTodo($id)) {
+            return $this->notFoundResponse();
         }
+        $todo->delete();
+        return $this->successResponse(message: "Successfully deleted!");
     }
 
     public function getTodo(int $id){
